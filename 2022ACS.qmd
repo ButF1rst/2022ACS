@@ -1,0 +1,74 @@
+---
+title: "2022ACS"
+author: "Siyuan Lu"
+date: 2024-10-03
+format: pdf
+editor: visual
+---
+
+```{r}
+#| include: false
+#| warning: false
+#| message: false
+#| echo: false
+
+library(tidyverse)
+library(haven)
+library(labelled)
+
+data <- read_csv("usa_00001.csv")
+
+data_new <-
+  data |>
+  select(STATEICP, SEX, EDUC, EDUCD)
+```
+
+# Obtain the data
+
+We get the data from IPUMS USA. We first select samples 2022 ACS. Next we select geographic household variable STATEICP, demographic person variable SEX, and education person variable EDUC. Next, we create the data extraction and login to IPUMS account. Finally, download the data usa_00001.csv.gz and gunzip in R.
+
+# Ratio estimators approach
+
+The ratio estimator is a statistical method used to improve the precision of estimates by leveraging the correlation between a target variable (Y) and an auxiliary variable (X) associated with Y. It assumes a linear relationship between Y and X, or that their ratio remains constant. Ratio estimators are particularly effective when the auxiliary variable is easily measured and highly correlated with the target variable.
+
+# Estimates and the actual number of respondents
+
+```{r}
+#| warning: false
+#| message: false
+#| echo: false
+
+doctoral <- data_new |>
+  filter(EDUCD == 116) |>
+  group_by(STATEICP) |>
+  summarise(doctoral = n()) |>
+  ungroup()
+
+respondents_California <- 391171
+
+doctoral_california <- doctoral |>
+  filter(STATEICP == "71")
+
+doctoral_ratio <- doctoral_california/respondents_California
+
+estimated_respondents <- doctoral |>
+  mutate(estimated_respondents = doctoral/doctoral_ratio)
+
+actual_respondents <- data_new |>
+  group_by(STATEICP) |>
+  summarise(actual_respondents = n())
+
+comparison <- doctoral |>
+  left_join(actual_respondents, by = "STATEICP") |>
+  left_join(estimated_respondents, by = "STATEICP") |>
+  select(STATEICP, actual_respondents, estimated_respondents)
+comparison
+```
+
+# Why they are different
+
+The estimate the total number of respondents in each state is different with the actual number of respondents in each state for following reasons:
+
+The ratio estimator assumes that the proportion of people with doctoral degrees relative to the total population is similar across states. However, education levels vary significantly due to state-specific factors.
+
+The assumption of uniformity in educational attainment is often not valid across states, leading to inaccurate estimates.
